@@ -9,6 +9,8 @@ var _profesores = require("./profesores");
 var _roles = require("./roles");
 var _roles_permisos = require("./roles_permisos");
 var _usuarios = require("./usuarios");
+var _programas = require("./programas");
+var _estudiante_programa = require("./estudiante_programa");
 
 function initModels(sequelize) {
   var asistencias = _asistencias(sequelize, DataTypes);
@@ -21,6 +23,8 @@ function initModels(sequelize) {
   var roles = _roles(sequelize, DataTypes);
   var roles_permisos = _roles_permisos(sequelize, DataTypes);
   var usuarios = _usuarios(sequelize, DataTypes);
+  var programas = _programas(sequelize, DataTypes);
+  var estudiante_programa = _estudiante_programa(sequelize, DataTypes);
 
   // Relaciones existentes
   asistencias.belongsTo(clases, { as: "clase", foreignKey: "clase_id" });
@@ -65,6 +69,40 @@ function initModels(sequelize) {
     as: 'roles_asociados'
   });
 
+  // RELACIÓN MUCHOS A MUCHOS ESTUDIANTES <-> GRUPOS
+  estudiantes.belongsToMany(grupos, {
+    through: estudiante_grupo,
+    foreignKey: 'estudiante_id',
+    otherKey: 'grupo_id',
+    as: 'grupos'
+  });
+
+  grupos.belongsToMany(estudiantes, {
+    through: estudiante_grupo,
+    foreignKey: 'grupo_id',
+    otherKey: 'estudiante_id',
+    as: 'estudiantes'
+  });
+
+  // RELACIÓN MUCHOS A MUCHOS ESTUDIANTES <-> PROGRAMAS
+  estudiantes.belongsToMany(programas, {
+    through: estudiante_programa,
+    foreignKey: 'estudiante_id',
+    otherKey: 'programa_id',
+    as: 'programas'
+  });
+
+  programas.belongsToMany(estudiantes, {
+    through: estudiante_programa,
+    foreignKey: 'programa_id',
+    otherKey: 'estudiante_id',
+    as: 'estudiantes'
+  });
+
+  // RELACIÓN UNO A MUCHOS GRUPOS <-> PROGRAMAS
+  grupos.belongsTo(programas, { as: 'programa', foreignKey: 'programa_id' });
+  programas.hasMany(grupos, { as: 'grupos', foreignKey: 'programa_id' });
+
   return {
     asistencias,
     clases,
@@ -76,6 +114,8 @@ function initModels(sequelize) {
     roles,
     roles_permisos,
     usuarios,
+    programas,
+    estudiante_programa,
   };
 }
 

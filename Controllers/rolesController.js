@@ -1,6 +1,7 @@
 const { roles: Rol } = require('../models');
 const { roles_permisos, permisos, usuarios: Usuario } = require('../models');
 const { Op } = require('sequelize');
+const response = require('../utils/responseHandler');
 
 module.exports = {
   async obtenerRoles(req, res)  {
@@ -20,7 +21,7 @@ module.exports = {
       order: [['id', 'ASC']],
     });
 
-    res.json({
+    response.success(res, {
       total: count,
       page: parseInt(page),
       size: limit,
@@ -28,7 +29,7 @@ module.exports = {
     });
   } catch (error) {
     console.error('Error al obtener roles:', error);
-    res.status(500).json({ mensaje: 'Error al obtener roles' });
+    response.error(res, error, 'Error al obtener roles');
   }
 },
 
@@ -50,10 +51,10 @@ module.exports = {
       });
 
       if (!rol) {
-        return res.status(404).json({ mensaje: 'Rol no encontrado' });
+        return response.error(res, {}, 'Rol no encontrado', 404);
       }
 
-      res.json({
+      response.success(res, {
         id: rol.id,
         nombre: rol.nombre,
         estado: rol.estado,
@@ -61,7 +62,7 @@ module.exports = {
       });
     } catch (error) {
       console.error('Error al obtener detalles del rol:', error);
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
+      response.error(res, error, 'Error interno del servidor');
     }
   },
 
@@ -70,22 +71,28 @@ module.exports = {
       const { nombre, permisos_ids } = req.body;
 
       if (!nombre || !Array.isArray(permisos_ids)) {
-        return res.status(400).json({ error: 'Nombre y lista de permisos son requeridos' });
+        return response.error(res, {}, 'Nombre y lista de permisos son requeridos', 400);
+      }
+
+      // Validar que no exista un rol con el mismo nombre
+      const existente = await Rol.findOne({ where: { nombre } });
+      if (existente) {
+        return response.error(res, {}, 'Ya existe un rol con ese nombre', 400);
       }
 
       const nuevoRol = await Rol.create({ nombre });
 
       const asociaciones = permisos_ids.map(idPermiso => ({
         rol_id: nuevoRol.id,
-        permiso_id: idPermiso  // 🔥 Aquí estaba el error
+        permiso_id: idPermiso
       }));
 
       await roles_permisos.bulkCreate(asociaciones);
 
-      res.status(201).json({ mensaje: 'Rol creado con éxito', rol: nuevoRol });
+      response.success(res, nuevoRol, 'Rol creado con éxito', 201);
     } catch (error) {
       console.error('Error al crear el rol:', error);
-      res.status(500).json({ error: 'Error al crear el rol' });
+      response.error(res, error, 'Error al crear el rol');
     }
   },
 
@@ -94,12 +101,22 @@ module.exports = {
     const { nombre, permisos: nuevosPermisos } = req.body;
 
     try {
+      if (parseInt(id) === 1) {
+        return response.error(res, {}, 'No se puede editar el rol Administrador', 403);
+      }
       const rolEncontrado = await Rol.findByPk(id);
       if (!rolEncontrado) {
-        return res.status(404).json({ mensaje: 'Rol no encontrado' });
+        return response.error(res, {}, 'Rol no encontrado', 404);
       }
 
-      if (nombre !== undefined) rolEncontrado.nombre = nombre;
+      // Validar que no exista otro rol con el mismo nombre
+      if (nombre) {
+        const existente = await Rol.findOne({ where: { nombre, id: { [Op.ne]: id } } });
+        if (existente) {
+          return response.error(res, {}, 'Ya existe un rol con ese nombre', 400);
+        }
+        rolEncontrado.nombre = nombre;
+      }
       await rolEncontrado.save();
 
       if (Array.isArray(nuevosPermisos)) {
@@ -107,16 +124,16 @@ module.exports = {
 
         const permisosAInsertar = nuevosPermisos.map(idPermiso => ({
           rol_id: id,
-          permiso_id: idPermiso  // 🔥 Aquí también se corrige
+          permiso_id: idPermiso
         }));
 
         await roles_permisos.bulkCreate(permisosAInsertar);
       }
 
-      res.json({ mensaje: 'Rol actualizado correctamente' });
+      response.success(res, {}, 'Rol actualizado correctamente');
     } catch (error) {
       console.error('Error al editar el rol:', error);
-      res.status(500).json({ mensaje: 'Error al editar el rol' });
+      response.error(res, error, 'Error al editar el rol');
     }
   },
 
@@ -124,23 +141,26 @@ module.exports = {
     const { id } = req.params;
 
     try {
+      if (parseInt(id) === 1) {
+        return response.error(res, {}, 'No se puede eliminar el rol Administrador', 403);
+      }
       const rolEncontrado = await Rol.findByPk(id);
       if (!rolEncontrado) {
-        return res.status(404).json({ mensaje: 'Rol no encontrado' });
+        return response.error(res, {}, 'Rol no encontrado', 404);
       }
 
       const usuariosConRol = await Usuario.count({ where: { rol_id: id } });
       if (usuariosConRol > 0) {
-        return res.status(400).json({ mensaje: 'No se puede eliminar el rol porque tiene usuarios asociados' });
+        return response.error(res, {}, 'No se puede eliminar el rol porque tiene usuarios asociados', 400);
       }
 
       await roles_permisos.destroy({ where: { rol_id: id } });
       await Rol.destroy({ where: { id } });
 
-      res.json({ mensaje: 'Rol y sus permisos asociados eliminados con éxito' });
+      response.success(res, {}, 'Rol y sus permisos asociados eliminados con éxito');
     } catch (error) {
       console.error('Error al eliminar el rol:', error);
-      res.status(500).json({ mensaje: 'Error al eliminar el rol' });
+      response.error(res, error, 'Error al eliminar el rol');
     }
   },
 
@@ -149,20 +169,20 @@ module.exports = {
     const { estado } = req.body;
 
     if (typeof estado !== 'boolean') {
-      return res.status(400).json({ error: 'El estado debe ser un valor booleano (true/false)' });
+      return response.error(res, {}, 'El estado debe ser un valor booleano (true/false)', 400);
     }
 
     try {
       const rolEncontrado = await Rol.findByPk(id);
-      if (!rolEncontrado) return res.status(404).json({ error: 'Rol no encontrado' });
+      if (!rolEncontrado) return response.error(res, {}, 'Rol no encontrado', 404);
 
       rolEncontrado.estado = estado;
       await rolEncontrado.save();
 
-      res.json({ mensaje: 'Estado del rol actualizado', estado: rolEncontrado.estado });
+      response.success(res, { estado: rolEncontrado.estado }, 'Estado del rol actualizado');
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Error al cambiar estado del rol' });
+      response.error(res, error, 'Error al cambiar estado del rol');
     }
   },
 
@@ -185,7 +205,7 @@ module.exports = {
 
       const totalPaginas = Math.ceil(count / parseInt(limite));
 
-      return res.status(200).json({
+      response.success(res, {
         roles: rows,
         total: count,
         totalPaginas,
@@ -196,7 +216,7 @@ module.exports = {
 
     } catch (error) {
       console.error('Error al buscar roles:', error);
-      return res.status(500).json({ error: 'Error interno del servidor' });
+      response.error(res, error, 'Error interno del servidor');
     }
   }
 };

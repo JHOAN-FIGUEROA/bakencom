@@ -11,10 +11,25 @@ app.use(express.json());
 
 const rolesRoutes = require('./Routes/rolRoutes');  
 const usuariosRoutes = require('./Routes/usuarioRoutes');
-const permisosRoutes = require ('./Routes/permisoRoutes');  
-app.use('/api/rol', rolesRoutes);// Ajusta la ruta
-app.use('/api/usuarios', usuariosRoutes);// Ajusta la ruta
-app.use('/api/permisos', permisosRoutes);// Ajusta la ruta
+const permisosRoutes = require('./Routes/permisoRoutes');
+const asistenciasRoutes = require('./Routes/asistenciasRoutes');
+const clasesRoutes = require('./Routes/clasesRoutes');
+const estudiantesRoutes = require('./Routes/estudiantesRoutes');
+const gruposRoutes = require('./Routes/gruposRoutes');
+const profesoresRoutes = require('./Routes/profesoresRoutes');
+const estudianteGrupoRoutes = require('./Routes/estudianteGrupoRoutes');
+const programaRoutes = require('./Routes/programaRoutes');
+
+app.use('/api/rol', rolesRoutes);
+app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/permisos', permisosRoutes);
+app.use('/api/asistencias', asistenciasRoutes);
+app.use('/api/clases', clasesRoutes);
+app.use('/api/estudiantes', estudiantesRoutes);
+app.use('/api/grupos', gruposRoutes);
+app.use('/api/profesores', profesoresRoutes);
+app.use('/api/estudiante-grupo', estudianteGrupoRoutes);
+app.use('/api/programas', programaRoutes);
 
 sequelize.authenticate()
   .then(() => {

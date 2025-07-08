@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const { usuarios, roles } = require('../models');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const response = require('../utils/responseHandler');
 
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
@@ -20,7 +20,7 @@ exports.obtenerUsuarios = async (req, res) => {
 
     const totalPaginas = Math.ceil(count / limite);
 
-    res.status(200).json({
+    response.success(res, {
       usuarios: rows,
       totalUsuarios: count,
       totalPaginas,
@@ -28,18 +28,16 @@ exports.obtenerUsuarios = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al obtener los usuarios' });
+    response.error(res, error, 'Error al obtener los usuarios');
   }
 };
 
 // Crear un nuevo usuario (sin campo estado)
-
-
 exports.crearUsuario = async (req, res) => {
   const { nombre, apellido, documento, email, contraseña, rol_id } = req.body;
 
   if (!contraseña) {
-    return res.status(400).json({ error: 'La contraseña es obligatoria' });
+    return response.error(res, {}, 'La contraseña es obligatoria', 400);
   }
 
   try {
@@ -86,19 +84,19 @@ exports.crearUsuario = async (req, res) => {
 
     // Enviar correo
     try {
-  await transporter.sendMail(mailOptions);
-  console.log('Correo enviado');
-} catch (mailError) {
-  console.error('Error al enviar correo:', mailError);
-}
+      await transporter.sendMail(mailOptions);
+      console.log('Correo enviado');
+    } catch (mailError) {
+      console.error('Error al enviar correo:', mailError);
+    }
+    
     // Responder con el usuario creado
-    res.status(201).json(usuarioConRol);
+    response.success(res, usuarioConRol, 'Usuario creado exitosamente', 201);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al crear el usuario' });
+    response.error(res, error, 'Error al crear el usuario');
   }
 };
-
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -112,16 +110,16 @@ exports.login = async (req, res) => {
     });
 
     if (!usuario) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return response.error(res, {}, 'Credenciales inválidas', 401);
     }
 
     if (!usuario.rol) {
-      return res.status(403).json({ error: 'Usuario sin rol asignado, no puede iniciar sesión' });
+      return response.error(res, {}, 'Usuario sin rol asignado, no puede iniciar sesión', 403);
     }
 
     const passwordValida = await bcrypt.compare(contraseña, usuario.contraseña);
     if (!passwordValida) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return response.error(res, {}, 'Credenciales inválidas', 401);
     }
 
     const payload = {
@@ -133,11 +131,14 @@ exports.login = async (req, res) => {
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 
-    res.json({ token });
-
+    response.success(res, {
+      token,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido
+    }, 'Inicio de sesión exitoso');
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error en el inicio de sesión' });
+    response.error(res, error, 'Error en el inicio de sesión');
   }
 };
 
@@ -149,32 +150,37 @@ exports.actualizarUsuario = async (req, res) => {
   try {
     const usuario = await usuarios.findByPk(id);
     if (!usuario) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return response.error(res, {}, 'Usuario no encontrado', 404);
     }
 
     await usuario.update({ nombre, apellido, documento, email, rol_id });
 
-    res.status(200).json({ mensaje: 'Usuario actualizado correctamente', usuario });
+    response.success(res, usuario, 'Usuario actualizado correctamente');
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al actualizar el usuario' });
+    response.error(res, error, 'Error al actualizar el usuario');
   }
 };
 
 exports.eliminarUsuario = async (req, res) => {
   const { id } = req.params;
 
+  // Bloquear eliminación del usuario admin (id 10)
+  if (parseInt(id) === 10) {
+    return response.error(res, {}, 'No se puede eliminar el usuario administrador principal', 403);
+  }
+
   try {
     const usuario = await usuarios.findByPk(id);
     if (!usuario) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return response.error(res, {}, 'Usuario no encontrado', 404);
     }
 
     await usuario.destroy();
-    res.status(200).json({ mensaje: 'Usuario eliminado correctamente' });
+    response.success(res, {}, 'Usuario eliminado correctamente');
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al eliminar el usuario' });
+    response.error(res, error, 'Error al eliminar el usuario');
   }
 };
 
@@ -187,15 +193,16 @@ exports.obtenerDetalleUsuario = async (req, res) => {
     });
 
     if (!usuario) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return response.error(res, {}, 'Usuario no encontrado', 404);
     }
 
-    res.status(200).json(usuario);
+    response.success(res, usuario);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al obtener el detalle del usuario' });
+    response.error(res, error, 'Error al obtener el detalle del usuario');
   }
 };
+
 // Cambiar el estado (activo/inactivo) del usuario
 exports.cambiarEstadoUsuario = async (req, res) => {
   const { id } = req.params;
@@ -204,24 +211,25 @@ exports.cambiarEstadoUsuario = async (req, res) => {
   try {
     const usuario = await usuarios.findByPk(id);
     if (!usuario) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return response.error(res, {}, 'Usuario no encontrado', 404);
     }
 
     await usuario.update({ estado });
 
-    res.status(200).json({ mensaje: 'Estado del usuario actualizado correctamente', estadoActual: usuario.estado });
+    response.success(res, { estadoActual: usuario.estado }, 'Estado del usuario actualizado correctamente');
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al cambiar el estado del usuario' });
+    response.error(res, error, 'Error al cambiar el estado del usuario');
   }
 };
+
 // Contador total de usuarios registrados
 exports.contarUsuarios = async (req, res) => {
   try {
     const totalUsuarios = await usuarios.count();
-    res.status(200).json({ totalUsuarios });
+    response.success(res, { totalUsuarios });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al contar los usuarios' });
+    response.error(res, error, 'Error al contar los usuarios');
   }
 };
