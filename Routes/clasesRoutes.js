@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { verificarToken, verificarPermiso } = require('../middleware/auth');
 
 const {
   obtenerClases,
@@ -9,8 +10,16 @@ const {
   eliminarClase,
   obtenerClasesPorGrupo,
   obtenerClasesPorProfesor,
-  obtenerClasesPorDia
+  obtenerClasesPorDia,
+  obtenerClasesParaAsistencia
 } = require('../Controllers/clasesController');
+
+// Rutas específicas (deben ir ANTES de las rutas con parámetros)
+router.get('/para-asistencia', verificarToken, verificarPermiso('acceso_asistencias'), obtenerClasesParaAsistencia);
+// router.get('/reporte-asistencias', verificarToken, verificarPermiso('acceso_asistencias'), obtenerReporteAsistencias);
+router.get('/grupo/:grupo_id', obtenerClasesPorGrupo);
+router.get('/profesor/:profesor_id', obtenerClasesPorProfesor);
+router.get('/dia/:dia_semana', obtenerClasesPorDia);
 
 // Rutas básicas CRUD
 router.get('/', obtenerClases);
@@ -19,9 +28,4 @@ router.get('/:id', obtenerClasePorId);
 router.put('/:id', actualizarClase);
 router.delete('/:id', eliminarClase);
 
-// Rutas específicas
-router.get('/grupo/:grupo_id', obtenerClasesPorGrupo);
-router.get('/profesor/:profesor_id', obtenerClasesPorProfesor);
-router.get('/dia/:dia_semana', obtenerClasesPorDia);
-
-module.exports = router; 
+module.exports = router;

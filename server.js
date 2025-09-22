@@ -19,6 +19,8 @@ const gruposRoutes = require('./Routes/gruposRoutes');
 const profesoresRoutes = require('./Routes/profesoresRoutes');
 const estudianteGrupoRoutes = require('./Routes/estudianteGrupoRoutes');
 const programaRoutes = require('./Routes/programaRoutes');
+const salonesRoutes = require('./Routes/salonesRoutes');
+const dashboardRoutes = require('./Routes/dashboardRoutes');
 
 app.use('/api/rol', rolesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
@@ -30,6 +32,8 @@ app.use('/api/grupos', gruposRoutes);
 app.use('/api/profesores', profesoresRoutes);
 app.use('/api/estudiante-grupo', estudianteGrupoRoutes);
 app.use('/api/programas', programaRoutes);
+app.use('/api/salon', salonesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 sequelize.authenticate()
   .then(() => {

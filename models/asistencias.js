@@ -17,7 +17,7 @@ module.exports = function(sequelize, DataTypes) {
       unique: "asistencias_clase_id_estudiante_id_fecha_key"
     },
     estudiante_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(20),
       allowNull: true,
       unique: "asistencias_clase_id_estudiante_id_fecha_key"
     },

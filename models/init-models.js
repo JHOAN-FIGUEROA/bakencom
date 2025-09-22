@@ -11,6 +11,7 @@ var _roles_permisos = require("./roles_permisos");
 var _usuarios = require("./usuarios");
 var _programas = require("./programas");
 var _estudiante_programa = require("./estudiante_programa");
+var _salones = require("./salones");
 
 function initModels(sequelize) {
   var asistencias = _asistencias(sequelize, DataTypes);
@@ -25,10 +26,14 @@ function initModels(sequelize) {
   var usuarios = _usuarios(sequelize, DataTypes);
   var programas = _programas(sequelize, DataTypes);
   var estudiante_programa = _estudiante_programa(sequelize, DataTypes);
+  var salones = _salones(sequelize, DataTypes);
 
   // Relaciones existentes
   asistencias.belongsTo(clases, { as: "clase", foreignKey: "clase_id" });
   clases.hasMany(asistencias, { as: "asistencia", foreignKey: "clase_id" });
+  
+  asistencias.belongsTo(estudiantes, { as: "estudiante", foreignKey: "estudiante_id", targetKey: "documento" });
+  estudiantes.hasMany(asistencias, { as: "asistencias", foreignKey: "estudiante_id", sourceKey: "documento" });
 
   estudiante_grupo.belongsTo(estudiantes, { as: "estudiante", foreignKey: "estudiante_id" });
   estudiantes.hasMany(estudiante_grupo, { as: "estudiante_grupos", foreignKey: "estudiante_id" });
@@ -41,6 +46,9 @@ function initModels(sequelize) {
 
   clases.belongsTo(profesores, { as: "profesor", foreignKey: "profesor_id" });
   profesores.hasMany(clases, { as: "clases", foreignKey: "profesor_id" });
+
+  clases.belongsTo(salones, { as: "salon", foreignKey: "salon_id" });
+  salones.hasMany(clases, { as: "clases", foreignKey: "salon_id" });
 
   roles_permisos.belongsTo(permisos, { as: "permiso", foreignKey: "permiso_id" });
   permisos.hasMany(roles_permisos, { as: "permisos_roles", foreignKey: "permiso_id" });
@@ -116,6 +124,7 @@ function initModels(sequelize) {
     usuarios,
     programas,
     estudiante_programa,
+    salones,
   };
 }
 

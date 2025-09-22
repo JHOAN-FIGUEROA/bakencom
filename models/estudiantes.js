@@ -14,6 +14,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
+    email: {
+      type: DataTypes.STRING(100),
+      allowNull: false
+    },
     nombre: {
       type: DataTypes.STRING(100),
       allowNull: false
@@ -65,6 +69,11 @@ module.exports = function(sequelize, DataTypes) {
     rh: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    estado: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     }
   }, {
     sequelize,

@@ -1,4 +1,4 @@
-const { estudiantes, estudiante_grupo, grupos, asistencias } = require('../models');
+const { estudiantes, estudiante_grupo, grupos, asistencias, programas } = require('../models');
 const { Op } = require('sequelize');
 const response = require('../utils/responseHandler');
 
@@ -6,7 +6,7 @@ const response = require('../utils/responseHandler');
 exports.obtenerEstudiantes = async (req, res) => {
   try {
     const pagina = parseInt(req.query.pagina) || 1;
-    const limite = parseInt(req.query.limite) || 10;
+    const limite = parseInt(req.query.limite) || 5;
     const offset = (pagina - 1) * limite;
 
     const { count, rows } = await estudiantes.findAndCountAll({
@@ -14,6 +14,11 @@ exports.obtenerEstudiantes = async (req, res) => {
         { 
           model: grupos, 
           as: 'grupos',
+          through: { attributes: [] }
+        },
+        {
+          model: programas,
+          as: 'programas',
           through: { attributes: [] }
         }
       ],
@@ -42,52 +47,67 @@ exports.crearEstudiante = async (req, res) => {
     numerofolio, 
     tipo_documento, 
     documento, 
+    email,
     nombre, 
     apellido, 
     fecha_nacimiento, 
     departamento, 
     Municipio, 
     direccion, 
-    programa, 
     telefono, 
     horario_programa, 
     eps, 
     observaciones, 
     foto, 
-    rh 
+    rh, 
+    programas: programasIds // array de IDs de programas
   } = req.body;
+
+  // Validar email obligatorio y formato
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return response.error(res, {}, 'El correo electrónico es obligatorio y debe tener un formato válido', 400);
+  }
+
+  // Validar email único
+  const emailExistente = await estudiantes.findOne({ where: { email } });
+  if (emailExistente) {
+    return response.error(res, {}, 'Ya existe un estudiante con ese correo electrónico', 400);
+  }
 
   try {
     const nuevoEstudiante = await estudiantes.create({
       numerofolio,
       tipo_documento,
       documento,
+      email,
       nombre,
       apellido,
       fecha_nacimiento,
       departamento,
       Municipio,
       direccion,
-      programa,
       telefono,
       horario_programa,
       eps,
       observaciones,
       foto,
-      rh
+      rh,
+      estado: true // Siempre activo al crear
     });
 
-    const estudianteConGrupos = await estudiantes.findByPk(nuevoEstudiante.documento, {
+    // Asociar programas si se envían
+    if (Array.isArray(programasIds) && programasIds.length > 0) {
+      await nuevoEstudiante.setProgramas(programasIds);
+    }
+
+    const estudianteConRelaciones = await estudiantes.findByPk(nuevoEstudiante.documento, {
       include: [
-        { 
-          model: grupos, 
-          as: 'grupos',
-          through: { attributes: [] }
-        }
+        { model: grupos, as: 'grupos', through: { attributes: [] } },
+        { model: programas, as: 'programas', through: { attributes: [] } }
       ]
     });
 
-    response.success(res, estudianteConGrupos, 'Estudiante creado', 201);
+    response.success(res, estudianteConRelaciones, 'Estudiante creado', 201);
   } catch (error) {
     console.error(error);
     response.error(res, error, 'Error al crear el estudiante');
@@ -104,6 +124,11 @@ exports.obtenerEstudiantePorDocumento = async (req, res) => {
         { 
           model: grupos, 
           as: 'grupos',
+          through: { attributes: [] }
+        },
+        {
+          model: programas,
+          as: 'programas',
           through: { attributes: [] }
         }
       ]
@@ -128,18 +153,30 @@ exports.actualizarEstudiante = async (req, res) => {
     tipo_documento, 
     nombre, 
     apellido, 
+    email,
     fecha_nacimiento, 
     departamento, 
     Municipio, 
     direccion, 
-    programa, 
     telefono, 
     horario_programa, 
     eps, 
     observaciones, 
     foto, 
-    rh 
+    rh, 
+    programas: programasIds // array de IDs de programas
   } = req.body;
+
+  // Validar email obligatorio y formato
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return response.error(res, {}, 'El correo electrónico es obligatorio y debe tener un formato válido', 400);
+  }
+
+  // Validar email único (excluyendo el propio)
+  const emailExistente = await estudiantes.findOne({ where: { email, documento: { [Op.ne]: documento } } });
+  if (emailExistente) {
+    return response.error(res, {}, 'Ya existe otro estudiante con ese correo electrónico', 400);
+  }
 
   try {
     const estudiante = await estudiantes.findByPk(documento);
@@ -152,11 +189,11 @@ exports.actualizarEstudiante = async (req, res) => {
       tipo_documento, 
       nombre, 
       apellido, 
+      email,
       fecha_nacimiento, 
       departamento, 
       Municipio, 
       direccion, 
-      programa, 
       telefono, 
       horario_programa, 
       eps, 
@@ -165,7 +202,19 @@ exports.actualizarEstudiante = async (req, res) => {
       rh 
     });
 
-    response.success(res, estudiante, 'Estudiante actualizado correctamente');
+    // Actualizar programas asociados
+    if (Array.isArray(programasIds)) {
+      await estudiante.setProgramas(programasIds);
+    }
+
+    const estudianteConRelaciones = await estudiantes.findByPk(estudiante.documento, {
+      include: [
+        { model: grupos, as: 'grupos', through: { attributes: [] } },
+        { model: programas, as: 'programas', through: { attributes: [] } }
+      ]
+    });
+
+    response.success(res, estudianteConRelaciones, 'Estudiante actualizado correctamente');
   } catch (error) {
     console.error(error);
     response.error(res, error, 'Error al actualizar el estudiante');
@@ -265,5 +314,25 @@ exports.obtenerEstudiantesPorDepartamento = async (req, res) => {
   } catch (error) {
     console.error(error);
     response.error(res, error, 'Error al obtener estudiantes del departamento');
+  }
+}; 
+
+// Cambiar el estado (activo/inactivo) del estudiante
+exports.cambiarEstadoEstudiante = async (req, res) => {
+  const { documento } = req.params;
+  const { estado } = req.body; // true o false
+
+  try {
+    const estudiante = await estudiantes.findByPk(documento);
+    if (!estudiante) {
+      return response.error(res, {}, 'Estudiante no encontrado', 404);
+    }
+
+    await estudiante.update({ estado });
+
+    response.success(res, { estadoActual: estudiante.estado }, 'Estado del estudiante actualizado correctamente');
+  } catch (error) {
+    console.error(error);
+    response.error(res, error, 'Error al cambiar el estado del estudiante');
   }
 }; 

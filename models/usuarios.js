@@ -8,6 +8,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
+    tipo_documento: {
+      type: DataTypes.STRING(20),
+      allowNull: false
+    },
     nombre: {
       type: DataTypes.STRING(50),
       allowNull: false
@@ -34,6 +38,14 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.BOOLEAN,
       allowNull: true,
       defaultValue: true,  // El valor por defecto será TRUE (activo)
+    },
+    reset_token: {
+      type: DataTypes.STRING(4),
+      allowNull: true
+    },
+    reset_token_expiracion: {
+      type: DataTypes.DATE,
+      allowNull: true
     },
     rol_id: {
       type: DataTypes.INTEGER,

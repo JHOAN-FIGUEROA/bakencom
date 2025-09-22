@@ -42,6 +42,14 @@ module.exports = function(sequelize, DataTypes) {
     hora_fin: {
       type: DataTypes.TIME,
       allowNull: true
+    },
+    salon_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'salones',
+        key: 'id'
+      }
     }
   }, {
     sequelize,

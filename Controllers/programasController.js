@@ -14,12 +14,29 @@ exports.obtenerProgramas = async (req, res) => {
 
 // Crear un nuevo programa
 exports.crearPrograma = async (req, res) => {
-  const { nombre } = req.body;
+  const { nombre, duracion, modalidad, descripcion, estado } = req.body;
   try {
+    // Validaciones mínimas
     if (!nombre) {
       return response.error(res, {}, 'El nombre es obligatorio', 400);
     }
-    const nuevo = await programas.create({ nombre });
+    if (!duracion) {
+      return response.error(res, {}, 'La duración es obligatoria', 400);
+    }
+    if (!modalidad) {
+      return response.error(res, {}, 'La modalidad es obligatoria', 400);
+    }
+
+    const payload = {
+      nombre,
+      duracion,
+      modalidad,
+      descripcion: descripcion ?? null,
+      // si no viene estado, dejar que el default del modelo (true) aplique
+      ...(estado !== undefined ? { estado: !!estado } : {})
+    };
+
+    const nuevo = await programas.create(payload);
     response.success(res, nuevo, 'Programa creado', 201);
   } catch (error) {
     console.error(error);
@@ -45,13 +62,22 @@ exports.obtenerProgramaPorId = async (req, res) => {
 // Actualizar programa
 exports.actualizarPrograma = async (req, res) => {
   const { id } = req.params;
-  const { nombre } = req.body;
+  const { nombre, duracion, modalidad, descripcion, estado } = req.body;
   try {
     const programa = await programas.findByPk(id);
     if (!programa) {
       return response.error(res, {}, 'Programa no encontrado', 404);
     }
-    await programa.update({ nombre });
+
+    // Actualización parcial: solo los campos enviados
+    const updateFields = {};
+    if (nombre !== undefined) updateFields.nombre = nombre;
+    if (duracion !== undefined) updateFields.duracion = duracion;
+    if (modalidad !== undefined) updateFields.modalidad = modalidad;
+    if (descripcion !== undefined) updateFields.descripcion = descripcion;
+    if (estado !== undefined) updateFields.estado = !!estado;
+
+    await programa.update(updateFields);
     response.success(res, programa, 'Programa actualizado');
   } catch (error) {
     console.error(error);
@@ -73,4 +99,4 @@ exports.eliminarPrograma = async (req, res) => {
     console.error(error);
     response.error(res, error, 'Error al eliminar el programa');
   }
-}; 
+};

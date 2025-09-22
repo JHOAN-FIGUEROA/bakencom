@@ -8,7 +8,7 @@ const nodemailer = require('nodemailer');
 exports.obtenerProfesores = async (req, res) => {
   try {
     const pagina = parseInt(req.query.pagina) || 1;
-    const limite = parseInt(req.query.limite) || 10;
+    const limite = parseInt(req.query.limite) || 5;
     const offset = (pagina - 1) * limite;
 
     const { count, rows } = await profesores.findAndCountAll({
@@ -37,7 +37,7 @@ exports.obtenerProfesores = async (req, res) => {
 
 // Crear un nuevo profesor
 exports.crearProfesor = async (req, res) => {
-  const { nombre, apellido, documento, email, especialidad, departamento, telefono, direccion } = req.body;
+  const { nombre, apellido, tipo_documento, documento, email, especialidad, departamento, telefono, direccion } = req.body;
 
   try {
     // Validar si ya existe un usuario con el mismo documento o email
@@ -67,6 +67,7 @@ exports.crearProfesor = async (req, res) => {
     const nuevoUsuario = await usuarios.create({
       nombre,
       apellido,
+      tipo_documento,
       documento,
       email,
       contraseña: hash,
@@ -77,6 +78,7 @@ exports.crearProfesor = async (req, res) => {
     const nuevoProfesor = await profesores.create({
       nombre,
       apellido,
+      tipo_documento,
       documento,
       email,
       usuario_id: nuevoUsuario.id,
@@ -181,7 +183,7 @@ exports.obtenerProfesorPorDocumento = async (req, res) => {
 // Actualizar profesor
 exports.actualizarProfesor = async (req, res) => {
   const { id } = req.params;
-  const { nombre, apellido, documento, email, usuario_id, especialidad, departamento, telefono, direccion } = req.body;
+  const { nombre, apellido, tipo_documento, documento, email, usuario_id, especialidad, departamento, telefono, direccion } = req.body;
 
   try {
     const profesor = await profesores.findByPk(id);
@@ -203,7 +205,7 @@ exports.actualizarProfesor = async (req, res) => {
       return response.error(res, {}, 'Ya existe otro usuario con ese documento o email', 400);
     }
 
-    await profesor.update({ nombre, apellido, documento, email, usuario_id, especialidad, departamento, telefono, direccion });
+    await profesor.update({ nombre, apellido, tipo_documento, documento, email, especialidad, departamento, telefono, direccion });
 
     response.success(res, profesor, 'Profesor actualizado correctamente');
   } catch (error) {

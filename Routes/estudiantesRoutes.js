@@ -18,6 +18,7 @@ router.post('/', crearEstudiante);
 router.get('/:documento', obtenerEstudiantePorDocumento);
 router.put('/:documento', actualizarEstudiante);
 router.delete('/:documento', eliminarEstudiante);
+router.put('/estado/:documento', require('../Controllers/estudiantesController').cambiarEstadoEstudiante);
 
 // Rutas específicas
 router.get('/buscar', buscarEstudiantes);

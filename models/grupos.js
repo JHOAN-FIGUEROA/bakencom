@@ -11,6 +11,19 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(100),
       allowNull: false
     },
+    // Nuevos campos opcionales para soportar el formulario del frontend
+    descripcion: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    capacidad: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    semestre: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
     programa_id: {
       type: DataTypes.INTEGER,
       allowNull: true,

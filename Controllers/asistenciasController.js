@@ -1,13 +1,22 @@
-const { asistencias, clases, estudiantes } = require('../models');
+const { asistencias, clases, estudiantes, grupos, profesores, salones } = require('../models');
 const response = require('../utils/responseHandler');
 
 // Obtener todas las asistencias
 exports.obtenerAsistencias = async (req, res) => {
   try {
+    if (req.query.all === 'true') {
+      const lista = await asistencias.findAll({
+        include: [
+          { model: clases, as: 'clase' },
+          { model: estudiantes, as: 'estudiante' }
+        ],
+        order: [['fecha', 'DESC']]
+      });
+      return response.success(res, lista);
+    }
     const pagina = parseInt(req.query.pagina) || 1;
-    const limite = parseInt(req.query.limite) || 10;
+    const limite = 5;
     const offset = (pagina - 1) * limite;
-
     const { count, rows } = await asistencias.findAndCountAll({
       include: [
         { model: clases, as: 'clase' },
@@ -17,9 +26,7 @@ exports.obtenerAsistencias = async (req, res) => {
       offset: offset,
       order: [['fecha', 'DESC']]
     });
-
     const totalPaginas = Math.ceil(count / limite);
-
     response.success(res, {
       asistencias: rows,
       totalAsistencias: count,
@@ -32,19 +39,111 @@ exports.obtenerAsistencias = async (req, res) => {
   }
 };
 
+// Verificar si ya existe asistencia para una clase en una fecha
+exports.verificarAsistenciaExistente = async (req, res) => {
+  const { clase_id } = req.params;
+  const { fecha } = req.query;
+
+  try {
+    const fechaConsulta = fecha || new Date().toISOString().slice(0, 10);
+    
+    const asistenciasExistentes = await asistencias.findAll({
+      where: {
+        clase_id,
+        fecha: fechaConsulta
+      },
+      include: [
+        { model: estudiantes, as: 'estudiante' }
+      ]
+    });
+
+    // Eliminar duplicados por estudiante (tomar el último registro)
+    const asistenciasUnicas = [];
+    const estudiantesVistos = new Set();
+    
+    // Recorrer en orden inverso para tomar el último registro de cada estudiante
+    for (let i = asistenciasExistentes.length - 1; i >= 0; i--) {
+      const asistencia = asistenciasExistentes[i];
+      if (!estudiantesVistos.has(asistencia.estudiante_id)) {
+        estudiantesVistos.add(asistencia.estudiante_id);
+        asistenciasUnicas.unshift(asistencia); // Agregar al inicio para mantener orden
+      }
+    }
+
+    const resumen = {
+      existe_asistencia: asistenciasUnicas.length > 0,
+      fecha: fechaConsulta,
+      total_registros: asistenciasUnicas.length,
+      presentes: asistenciasUnicas.filter(a => a.presente).length,
+      ausentes: asistenciasUnicas.filter(a => !a.presente).length,
+      estudiantes: asistenciasUnicas.map(a => ({
+        documento: a.estudiante_id,
+        nombre: a.estudiante ? `${a.estudiante.nombre} ${a.estudiante.apellido}` : 'N/A',
+        presente: a.presente
+      }))
+    };
+
+    response.success(res, resumen);
+  } catch (error) {
+    console.error(error);
+    response.error(res, error, 'Error al verificar asistencia existente');
+  }
+};
+
+// Obtener asistencias por clase
+exports.obtenerAsistenciasPorClase = async (req, res) => {
+  const { clase_id } = req.params;
+
+  try {
+    const asistenciasClase = await asistencias.findAll({
+      where: { clase_id },
+      include: [
+        { model: clases, as: 'clase' },
+        { model: estudiantes, as: 'estudiante' }
+      ],
+      order: [['fecha', 'DESC']]
+    });
+
+    response.success(res, asistenciasClase);
+  } catch (error) {
+    console.error(error);
+    response.error(res, error, 'Error al obtener las asistencias de la clase');
+  }
+};
+
 // Crear una nueva asistencia
 exports.crearAsistencia = async (req, res) => {
   const { clase_id, estudiante_id, fecha, presente } = req.body;
 
   try {
-    const nuevaAsistencia = await asistencias.create({
-      clase_id,
-      estudiante_id,
-      fecha,
-      presente: presente || false
+    // Verificar si ya existe una asistencia para esta combinación
+    const asistenciaExistente = await asistencias.findOne({
+      where: {
+        clase_id,
+        estudiante_id,
+        fecha
+      }
     });
 
-    const asistenciaConRelaciones = await asistencias.findByPk(nuevaAsistencia.id, {
+    let asistenciaFinal;
+    
+    if (asistenciaExistente) {
+      // Si existe, actualizar el estado
+      await asistenciaExistente.update({
+        presente: presente !== undefined ? presente : false
+      });
+      asistenciaFinal = asistenciaExistente;
+    } else {
+      // Si no existe, crear nueva
+      asistenciaFinal = await asistencias.create({
+        clase_id,
+        estudiante_id,
+        fecha,
+        presente: presente !== undefined ? presente : false
+      });
+    }
+
+    const asistenciaConRelaciones = await asistencias.findByPk(asistenciaFinal.id, {
       include: [
         { model: clases, as: 'clase' },
         { model: estudiantes, as: 'estudiante' }
@@ -65,7 +164,15 @@ exports.obtenerAsistenciaPorId = async (req, res) => {
   try {
     const asistencia = await asistencias.findByPk(id, {
       include: [
-        { model: clases, as: 'clase' },
+        { 
+          model: clases, 
+          as: 'clase',
+          include: [
+            { model: grupos, as: 'grupo' },
+            { model: profesores, as: 'profesor' },
+            { model: salones, as: 'salon' }
+          ]
+        },
         { model: estudiantes, as: 'estudiante' }
       ]
     });
@@ -165,4 +272,4 @@ exports.obtenerAsistenciasPorEstudiante = async (req, res) => {
     console.error(error);
     response.error(res, error, 'Error al obtener las asistencias del estudiante');
   }
-}; 
+};

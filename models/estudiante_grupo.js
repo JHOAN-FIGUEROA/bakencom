@@ -24,6 +24,10 @@ module.exports = function(sequelize, DataTypes) {
         key: 'id'
       },
       unique: "estudiante_grupo_unico"
+    },
+    fecha_asignacion: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
